@@ -1,0 +1,30 @@
+[submodule "src/3rdparty/small_gicp"]
+	path = src/3rdparty/small_gicp
+	url = https://github.com/koide3/small_gicp.git
+[submodule "src/diablo_perception/linefit_ground_segmentation_ros2"]
+	path = src/diablo_perception/linefit_ground_segmentation_ros2
+	url = https://github.com/baiyeweiguang/linefit_ground_segmentation_ros2.git
+[submodule "src/diablo_perception/point_lio_ros2"]
+	path = src/diablo_perception/point_lio_ros2
+	url = https://github.com/dfloreaa/point_lio_ros2.git
+[submodule "src/diablo_ros2"]
+	path = src/diablo_ros2
+	url = https://github.com/tianbot/diablo_ros2.git
+[submodule "src/utilities/nmea_navsat_driver"]
+	path = src/utilities/nmea_navsat_driver
+	url = https://github.com/ros-drivers/nmea_navsat_driver.git
+[submodule "src/utilities/pointcloud_to_laserscan"]
+	path = src/utilities/pointcloud_to_laserscan
+	url = git@github.com:geekhub330/pointcloud_to_laserscan.git
+[submodule "src/utilities/robot_localization"]
+	path = src/utilities/robot_localization
+	url = https://github.com/cra-ros-pkg/robot_localization.git
+[submodule "src/utilities/slam_cartographer/cartographer"]
+	path = src/utilities/slam_cartographer/cartographer
+	url = https://github.com/ros2/cartographer
+[submodule "src/utilities/slam_cartographer/cartographer_ros"]
+	path = src/utilities/slam_cartographer/cartographer_ros
+	url = https://github.com/ros2/cartographer_ros.git
+[submodule "src/utilities/slam_gmapping"]
+	path = src/utilities/slam_gmapping
+	url = https://github.com/Project-MANAS/slam_gmapping.git

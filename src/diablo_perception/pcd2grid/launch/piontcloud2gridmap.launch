@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="pcd2grid" exec="pointcloud2grid_node" name="piontcloud2gridmap_node" output="screen">
+    <param name="frame_id" value="map"/>
+    <param name="map_topic" value="map"/>
+    <param name="cloud_topic" value="points"/>
+    <param name="resolution" type="int" value="10"/>
+    <param name="min_z" value="0.1"/>
+    <param name="max_z" value="0.15"/>
+    <param name="cloud_max_x" value="10.0"/>
+    <param name="cloud_min_x" value="-10.0"/>
+    <param name="cloud_max_z" value="10.0"/>
+    <param name="cloud_min_z" value="-10.0"/>
+    <param name="free_thresh" value="0.65"/>
+    <param name="occupied_thresh" value="0.45"/>
+    <param name="thresh_diff" value="0.05"/>
+    <param name="upper_left_x" value="0.0"/>
+    <param name="upper_left_y" value="0.0"/>
+    <param name="scale_factor" value="0.0"/>
+    <param name="resize_factor" value="0.0"/>
+    <param name="visit_thresh" type="int" value="10"/>
+    <param name="use_local_counters" type="int" value="0"/>
+  </node>
+</launch>

@@ -1,0 +1,14 @@
+<!-- https://design.ros2.org/articles/roslaunch_xml.html -->
+<?xml version="1.0"?>
+<launch>
+  <arg name="pcd_file" default="/home/tianbot/Desktop/map.pcd" description="input .pcd path for processing"/>
+  <node pkg="pcd2grid" exec="pcd2grid_node" name="pcd2gridmap_node" output="screen">
+    <!-- <param name="pcd_file" value="$(find pcd2gridmap)/data/room.pcd"/> -->
+    <param name="pcd_file" value="$(arg pcd_file)"/>
+    <param name="resolution" value="0.05"/>
+    <param name="min_z" value="0.1"/>
+    <param name="max_z" value="0.15"/>
+    <param name="frame_id" value="map"/>
+    <param name="map_topic" value="map"/>
+  </node>
+</launch>
