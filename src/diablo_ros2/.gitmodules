@@ -1,0 +1,4 @@
+[submodule "diablo_basic"]
+	path = diablo_basic
+	url = https://github.com/tianbot/diablo_basic.git
+	branch = main

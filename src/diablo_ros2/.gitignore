@@ -1,0 +1,5 @@
+.vscode
+.history
+__pycache__/*
+*.pyc
+diablo_navigation2/maps/map_*
