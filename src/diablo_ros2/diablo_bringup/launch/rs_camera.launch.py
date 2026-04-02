@@ -11,6 +11,9 @@ from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch.conditions import IfCondition
 
 
+# RealSense 常用可配置参数。
+# 这里通过 Launch 参数暴露给外部，支持命令行覆盖，例如：
+# ros2 launch ... rs_camera.launch.py enable_depth:=true camera_name:=camera
 configurable_parameters = [{'name': 'camera_name',                  'default': 'camera', 'description': 'camera unique name'},
                            {'name': 'serial_no',                    'default': "''", 'description': 'choose device by serial number'},
                            {'name': 'usb_port_id',                  'default': "''", 'description': 'choose device by usb port id'},
@@ -62,17 +65,23 @@ configurable_parameters = [{'name': 'camera_name',                  'default': '
                            {'name': 'reconnect_timeout',            'default': '6.', 'description': 'Timeout(seconds) between consequtive reconnection attempts'},
                           ]
 
+# 将参数表批量声明为 LaunchArgument，便于在启动时动态传参。
 def declare_configurable_parameters(parameters):
     return [DeclareLaunchArgument(param['name'], default_value=param['default'], description=param['description']) for param in parameters]
 
+# 将 LaunchConfiguration 组装成节点 parameters 字典。
 def set_configurable_parameters(parameters):
     return dict([(param['name'], LaunchConfiguration(param['name'])) for param in parameters])
 
 def generate_launch_description():
+    # 预留变量。当前文件使用 LaunchConfiguration('log_level') 作为真正输入。
     log_level = 'info'
+
+    # 兼容旧版 ROS2（Dashing/Eloquent）与新版 API 差异：
+    # 旧版使用 node_namespace/node_name/node_executable 字段。
     if (os.getenv('ROS_DISTRO') == "dashing") or (os.getenv('ROS_DISTRO') == "eloquent"):
         return LaunchDescription(declare_configurable_parameters(configurable_parameters) + [
-            # Realsense
+            # 当未提供 config_file 时，仅使用启动参数字典。
             launch_ros.actions.Node(
                 condition=IfCondition(PythonExpression([LaunchConfiguration('config_file'), " == ''"])),
                 package='realsense2_camera',
@@ -85,6 +94,8 @@ def generate_launch_description():
                 #output='screen',
                 arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
                 ),
+
+            # 当提供 config_file 时，在参数字典之外再加载 YAML 文件。
             launch_ros.actions.Node(
                 condition=IfCondition(PythonExpression([LaunchConfiguration('config_file'), " != ''"])),
                 package='realsense2_camera',
@@ -100,8 +111,9 @@ def generate_launch_description():
                 ),
             ])
     else:
+        # 新版 ROS2 使用 namespace/name/executable 字段。
         return LaunchDescription(declare_configurable_parameters(configurable_parameters) + [
-            # Realsense
+            # 未配置 YAML：只用启动参数。
             launch_ros.actions.Node(
                 condition=IfCondition(PythonExpression([LaunchConfiguration('config_file'), " == ''"])),
                 package='realsense2_camera',
@@ -114,6 +126,8 @@ def generate_launch_description():
                 arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
                 emulate_tty=True,
                 ),
+
+            # 配置了 YAML：启动参数 + YAML 叠加。
             launch_ros.actions.Node(
                 condition=IfCondition(PythonExpression([LaunchConfiguration('config_file'), " != ''"])),
                 package='realsense2_camera',
