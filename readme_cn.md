@@ -15,7 +15,7 @@ ros2 launch diablo_bringup diablo_bringup.launch.py
 /ros_to_mqtt_publisher
 /mqtt_to_ros_node
 
-/ros_to_mqtt_publisher
+#### /ros_to_mqtt_publisher
   Subscribers:
 
   Publishers:
@@ -24,7 +24,7 @@ ros2 launch diablo_bringup diablo_bringup.launch.py
     /rosout: rcl_interfaces/msg/Log
 
 
-/mqtt_to_ros_node
+#### /mqtt_to_ros_node
   Subscribers:
     /diablo/sensor/Battery: sensor_msgs/msg/BatteryState
     /fix: sensor_msgs/msg/NavSatFix
@@ -43,38 +43,138 @@ ros2 launch diablo_bringup diablo_bringup.launch.py
 不重要
 
 ### 5) 机器人控制：底盘控制 + 站立控制 + 简易 UI
+启动三个节点
+diablo_ctrl_node
+diablo_stand_node
+user_interface_node
+
+#### diablo_ctrl_node
+底盘核心控制节点，负责真正和机器人底层控制器通信。
 
 
+发布
+/diablo_ctrl_node
+  Subscribers:
+    /diablo/MotionCmd: motion_msgs/msg/MotionCtrl
+
+  Publishers:
+    /diablo/sensor/Battery: sensor_msgs/msg/BatteryState
+    /diablo/sensor/Body_state: motion_msgs/msg/RobotStatus
+    /diablo/sensor/Imu: sensor_msgs/msg/Imu
+    /diablo/sensor/ImuEuler: ception_msgs/msg/IMUEuler
+    /diablo/sensor/Motors: motion_msgs/msg/LegMotors
 
 
+- 将高层控制指令转换为底盘 SDK 命令并下发
+- 发布机器人传感器信息
+
+#### diablo_stand_node
+站立/蹲下指令转换节点，负责把简单字符串命令转换为机器人姿态控制消息。
+
+/diablo_stand_node
+  Subscribers:
+    /stand: std_msgs/msg/String
+  Publishers:
+    /key_control: motion_msgs/msg/MotionCtrl
+
+功能：
+- 订阅 `/stand` 接收 `standup` 和 `sitdown` 指令
+- 生成 `MotionCtrl` 消息并发布到 `/key_control`
+- 通过组合姿态、升降、站立模式等字段实现机器人站起或蹲下
+
+它本身不直接控制底盘，而是把人类可读命令转换成底层可执行控制消息。
+
+#### user_interface_node---UI界面
+简易图形界面节点，提供桌面按钮控制。
+不在node当中显示
+在 diablo_ctrl.launch.py 里，user_interface_node 只是把可执行文件 ui_tools.py 当作进程拉起。
+ui_tools.py 里没有 rclpy.init、没有 Node、没有 create_publisher。它是 Tkinter 程序，通过 subprocess 调 ros2 topic pub 发消息。
+ros2 node list 只显示已经注册到 ROS 图里的节点。纯 GUI 进程不会显示。
 
 
 
 ### 6) 坐标系：机器人静态/动态 TF
+静态TF发布
+'base_footprint','base_link'
+'base_link', 'diablo_robot'
+'base_link', 'livox_frame'
+'base_link', 'camera_link'
+#### display_no_rviz.launch.py
+发布了两个节点
+robot_state_publisher
+joint_state_publisher/joint_state_publisher_gui
+
+##### robot_state_publisher
+读取URDF，运动学计算与坐标变换发布
+/robot_state_publisher
+  Subscribers:
+    /joint_states: sensor_msgs/msg/JointState
+
+  Publishers:
+    /robot_description: std_msgs/msg/String     # URDF
+    /tf: tf2_msgs/msg/TFMessage                 # 动态TF
+    /tf_static: tf2_msgs/msg/TFMessage          # 静态TF
 
 
+##### joint_state_publisher/joint_state_publisher_gui
+解析 URDF 模型，为所有非固定关节生成并发布角度数据
+发布关节角到 joint_states
 
-
-
-
-
+/joint_state_publisher
+  Subscribers:
+    /robot_description: std_msgs/msg/String
+  Publishers:
+    /joint_states: sensor_msgs/msg/JointState
 
 
 
 
 --------------------------------------------------------------------------------
-### 节点7) 状态估计：融合轮速里程计与 IMU 输出 /odom
+### 节点7) 状态估计：融合轮速里程计与 IMU 输出 /odom---第三方库
 ekf_filter_node
+核心是扩展卡尔曼滤波
+把 IMU + 轮式里程计按各自可信度融合
+输出更稳定的机器人位姿估计
+/ekf_filter_node
+  Subscribers:
+    /diablo/sensor/Imu: sensor_msgs/msg/Imu
+    /diablo_odom: nav_msgs/msg/Odometry                         # 轮式里程计
+    /set_pose: geometry_msgs/msg/PoseWithCovarianceStamped      #  RViz 里点“2D Pose Estimate
+  Publishers:
+    /diagnostics: diagnostic_msgs/msg/DiagnosticArray           # 运行状态和健康信息，用于调试和监控
+    /odom: nav_msgs/msg/Odometry
+    /tf: tf2_msgs/msg/TFMessage
 
-### 节点8) 感知转换：将 Livox 点云投影为 2D LaserScan 供导航/建图使用
+
+
+### 节点8) 感知转换：将 Livox 点云投影为 2D LaserScan 供导航/建图使用---官方节点
 pointcloud_to_laserscan_node
 
 ### 节点9) 控制消息转换：融合 cmd_vel 与键盘控制消息
-msg_convert_node
+msg_convert//ros类当中写的是msg_convert
+
+/msg_convert
+  Subscribers:
+    /cmd_vel: geometry_msgs/msg/Twist               # 导航来的控制指令
+    /key_control: motion_msgs/msg/MotionCtrl        # 
+
+  Publishers:
+    /diablo/MotionCmd: motion_msgs/msg/MotionCtrl   # 最终控制消息
+
+
 
 
 ### 节点10) 里程计发布：基于电机状态计算轮式里程计
 odom_publish_node
+
+/odom_publish_node
+  Subscribers:
+    /diablo/sensor/Motors: motion_msgs/msg/LegMotors    # 订阅电机状态
+
+  Publishers:
+    /diablo_odom: nav_msgs/msg/Odometry                 # 生成里程计消息
+
+
 
 
 ## ros2 topic list
@@ -105,18 +205,35 @@ odom_publish_node
 
 
 ## ros2 node list
-/camera/camera
-/diablo_ctrl_node
-/diablo_stand_node
-/ekf_filter_node
-/joint_state_publisher
-/livox_lidar_publisher
-/mqtt_to_ros_node
-/msg_convert
-/odom_publish_node
-/pointcloud_to_laserscan
-/robot_state_publisher
-/ros_to_mqtt_publisher
+
+/camera/camera                          # 相机
+/livox_lidar_publisher                  # 雷达
+
+---------------------------------------------------------
+
+
+/diablo_ctrl_node                       # 控制
+/diablo_stand_node                      # 站立
+/UI节点不显示
+
+/odom_publish_node                      # 电机-》轮式里程计
+/ekf_filter_node                        # 轮式里程计+IMU-》里程计
+
+/msg_convert                            # 控制指令融合
+
+
+/mqtt_to_ros_node                       # MQTT
+/ros_to_mqtt_publisher                  # MQTT
+
+
+------------------------------------------------------
+
+/pointcloud_to_laserscan                # 点云转scan
+
+/robot_state_publisher                  # URDF
+/joint_state_publisher                  # URDF
+
+
 /static_transform_publisher
 /static_transform_publisher
 /static_transform_publisher
