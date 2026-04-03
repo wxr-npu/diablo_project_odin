@@ -2,7 +2,7 @@ import os
 
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
@@ -12,6 +12,7 @@ def generate_launch_description():
     livox_dir = os.path.join(get_package_share_directory('livox_ros_driver2'),'launch_ROS2')
     realsense2_cam_dir = os.path.join(get_package_share_directory('diablo_bringup'),'launch')
     nmea_dir = os.path.join(get_package_share_directory('nmea_navsat_driver'), 'launch')
+    odin_dir = os.path.join(get_package_share_directory('odin_ros_driver'), 'launch')
     mqtt_dir = os.path.join(get_package_share_directory('diablo_mqtt'),'launch')
     led_dir = os.path.join(get_package_share_directory('diablo_led'),'launch')
     diablo_ctrl_dir = os.path.join(get_package_share_directory('diablo_bringup'),'launch')
@@ -19,28 +20,40 @@ def generate_launch_description():
     
     return LaunchDescription(
         [
-            # 1) 传感器驱动：Livox 激光雷达
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([livox_dir,'/msg_MID360_launch.py'])
+            # 提高 CycloneDDS 自动参与者索引上限，避免多节点同时启动时域创建失败
+            SetEnvironmentVariable(
+                name='CYCLONEDDS_URI',
+                value='<CycloneDDS><Domain id="any"><Discovery><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>120</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
             ),
 
-            # 2) 传感器驱动：RealSense 相机
+            # 1) 传感器驱动：Livox 激光雷达（切换到 Odin 时关闭）
+            # IncludeLaunchDescription(
+            #     PythonLaunchDescriptionSource([livox_dir,'/msg_MID360_launch.py'])
+            # ),
+
+            # odin测试
             IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([realsense2_cam_dir,'/rs_camera.launch.py'])
+                PythonLaunchDescriptionSource([odin_dir, '/odin1_ros2.launch.py'])
             ),
+
+
+            # # 2) 传感器驱动：RealSense 相机
+            # IncludeLaunchDescription(
+            #     PythonLaunchDescriptionSource([realsense2_cam_dir,'/rs_camera.launch.py'])
+            # ),
             # IncludeLaunchDescription(
             #     PythonLaunchDescriptionSource([nmea_dir,'/nmea_serial_driver.launch.py'])
             # ),
                 
-            # 3) 远程通信：MQTT 收发
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([mqtt_dir,'/diablo_mqtt.launch.py'])
-            ),
+            # # 3) 远程通信：MQTT 收发
+            # IncludeLaunchDescription(
+            #     PythonLaunchDescriptionSource([mqtt_dir,'/diablo_mqtt.launch.py'])
+            # ),
 
-            # 4) 外设控制：氛围灯
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([led_dir,'/diablo_led.launch.py'])
-            ),
+            # # 4) 外设控制：氛围灯
+            # IncludeLaunchDescription(
+            #     PythonLaunchDescriptionSource([led_dir,'/diablo_led.launch.py'])
+            # ),
 
             # 5) 机器人控制：底盘控制 + 站立控制 + 简易 UI
             IncludeLaunchDescription(
@@ -64,30 +77,30 @@ def generate_launch_description():
                 ],
             ),
 
-            # 8) 感知转换：将 Livox 点云投影为 2D LaserScan 供导航/建图使用
-            Node(
-                package='pointcloud_to_laserscan', 
-                executable='pointcloud_to_laserscan_node',
-                name='pointcloud_to_laserscan',
-                remappings=[
-                    # ('cloud_in', '/livox/lidar'),
-                    ('cloud_in', '/livox/lidar/pointcloud'),
-                ],
-                parameters=[{
-                    'target_frame': 'livox_frame',
-                    'transform_tolerance': 0.01,
-                    'min_height': 0.0,
-                    'max_height': 0.1,
-                    'angle_min': -3.1415,  # -M_PI/2
-                    'angle_max': 3.1415,  # M_PI/2
-                    'angle_increment': 0.005,  # M_PI/360.0
-                    'scan_time': 0.1,
-                    'range_min': 0.1,
-                    'range_max': 30.0,
-                    'use_inf': True,
-                    'inf_epsilon': 1.0
-                }],
-            ),
+            # # 8) 感知转换：将 Livox 点云投影为 2D LaserScan 供导航/建图使用
+            # Node(
+            #     package='pointcloud_to_laserscan', 
+            #     executable='pointcloud_to_laserscan_node',
+            #     name='pointcloud_to_laserscan',
+            #     remappings=[
+            #         # ('cloud_in', '/livox/lidar'),
+            #         ('cloud_in', '/livox/lidar/pointcloud'),
+            #     ],
+            #     parameters=[{
+            #         'target_frame': 'livox_frame',
+            #         'transform_tolerance': 0.01,
+            #         'min_height': 0.0,
+            #         'max_height': 0.1,
+            #         'angle_min': -3.1415,  # -M_PI/2
+            #         'angle_max': 3.1415,  # M_PI/2
+            #         'angle_increment': 0.005,  # M_PI/360.0
+            #         'scan_time': 0.1,
+            #         'range_min': 0.1,
+            #         'range_max': 30.0,
+            #         'use_inf': True,
+            #         'inf_epsilon': 1.0
+            #     }],
+            # ),
 
             # 9) 控制消息转换：融合 cmd_vel 与键盘控制消息
             Node(

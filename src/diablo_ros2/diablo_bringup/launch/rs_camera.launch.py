@@ -83,7 +83,7 @@ def generate_launch_description():
         return LaunchDescription(declare_configurable_parameters(configurable_parameters) + [
             # 当未提供 config_file 时，仅使用启动参数字典。
             launch_ros.actions.Node(
-                condition=IfCondition(PythonExpression([LaunchConfiguration('config_file'), " == ''"])),
+                condition=IfCondition(PythonExpression(["'", LaunchConfiguration('config_file'), "' == ''"])),
                 package='realsense2_camera',
                 node_namespace=LaunchConfiguration("camera_name"),
                 node_name=LaunchConfiguration("camera_name"),
@@ -97,14 +97,14 @@ def generate_launch_description():
 
             # 当提供 config_file 时，在参数字典之外再加载 YAML 文件。
             launch_ros.actions.Node(
-                condition=IfCondition(PythonExpression([LaunchConfiguration('config_file'), " != ''"])),
+                condition=IfCondition(PythonExpression(["'", LaunchConfiguration('config_file'), "' != ''"])),
                 package='realsense2_camera',
                 node_namespace=LaunchConfiguration("camera_name"),
                 node_name=LaunchConfiguration("camera_name"),
                 node_executable='realsense2_camera_node',
                 prefix=['stdbuf -o L'],
                 parameters=[set_configurable_parameters(configurable_parameters)
-                            , PythonExpression([LaunchConfiguration("config_file")])
+                            , LaunchConfiguration("config_file")
                             ],
                 #output='screen',
                 arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
@@ -115,7 +115,7 @@ def generate_launch_description():
         return LaunchDescription(declare_configurable_parameters(configurable_parameters) + [
             # 未配置 YAML：只用启动参数。
             launch_ros.actions.Node(
-                condition=IfCondition(PythonExpression([LaunchConfiguration('config_file'), " == ''"])),
+                condition=IfCondition(PythonExpression(["'", LaunchConfiguration('config_file'), "' == ''"])),
                 package='realsense2_camera',
                 namespace=LaunchConfiguration("camera_name"),
                 name=LaunchConfiguration("camera_name"),
@@ -129,13 +129,13 @@ def generate_launch_description():
 
             # 配置了 YAML：启动参数 + YAML 叠加。
             launch_ros.actions.Node(
-                condition=IfCondition(PythonExpression([LaunchConfiguration('config_file'), " != ''"])),
+                condition=IfCondition(PythonExpression(["'", LaunchConfiguration('config_file'), "' != ''"])),
                 package='realsense2_camera',
                 namespace=LaunchConfiguration("camera_name"),
                 name=LaunchConfiguration("camera_name"),
                 executable='realsense2_camera_node',
                 parameters=[set_configurable_parameters(configurable_parameters)
-                            , PythonExpression([LaunchConfiguration("config_file")])
+                            , LaunchConfiguration("config_file")
                             ],
                 #output='screen',
                 arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],

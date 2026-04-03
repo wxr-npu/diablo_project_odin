@@ -486,4 +486,59 @@ navigation_launch.py
 
 # odin基础移植
 
+## node
+/diablo_ctrl_node
+/diablo_stand_node
+/ekf_filter_node
+/host_sdk_sample
+/joint_state_publisher
+/msg_convert
+/odom_publish_node
+/robot_state_publisher
+/rviz2
+/static_transform_publisher
+/static_transform_publisher
+/static_transform_publisher
+/static_transform_publisher
+/transform_listener_impl_55eb59af73a0
+/transform_listener_impl_55fc51584460
+tianbot@diablo:~/diablo_ws$ 
+
+
+## topic
+/clicked_point
+/cmd_vel
+/diablo/MotionCmd
+/diablo/sensor/Battery
+/diablo/sensor/Body_state
+/diablo/sensor/Imu
+/diablo/sensor/ImuEuler
+/diablo/sensor/Motors
+/diablo_odom
+/diagnostics
+/goal_pose
+/initialpose
+/joint_states
+/key_control
+/odin1/camera_pose_visual
+/odin1/cloud_raw
+/odin1/cloud_render
+/odin1/cloud_slam
+/odin1/image
+/odin1/image/compressed
+/odin1/image/intensity_gray
+/odin1/image/undistorted
+/odin1/imu
+/odin1/odometry
+/odin1/odometry_highfreq
+/odin1/path
+/odom
+/parameter_events
+/robot_description
+/rosout
+/set_pose
+/stand
+/tf
+/tf_static
+
 
