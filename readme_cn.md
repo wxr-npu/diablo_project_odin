@@ -542,3 +542,23 @@ tianbot@diablo:~/diablo_ws$
 /tf_static
 
 
+
+# 问题汇总
+
+## 无法打开RQT-TF
+你单独运行 rqt_tf_tree 时，不会继承总 launch 里设置的 CYCLONEDDS_URI。
+你当前固定了 ROS_DOMAIN_ID=5 + ROS_LOCALHOST_ONLY=1，CycloneDDS 在这个域里再创建一个 participant（rqt）时就可能触发 Failed to find a free participant index。
+selected interface "lo" is not multicast-capable 在 localhost-only 场景是常见提示，不是致命原因。
+
+
+
+source /opt/ros/galactic/setup.bash
+source /home/tianbot/diablo_ws/install/setup.bash
+
+export ROS_DOMAIN_ID=5
+export ROS_LOCALHOST_ONLY=1
+export CYCLONEDDS_URI='<CycloneDDS><Domain id="any"><Discovery><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>300</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
+
+ros2 daemon stop
+ros2 run rqt_tf_tree rqt_tf_tree
+
