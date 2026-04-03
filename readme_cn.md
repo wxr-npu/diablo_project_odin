@@ -446,4 +446,44 @@ ros2 launch diablo_navigation2 nav2.launch.py use_map:=sfy05
 
 
 
+# 建图---cartographer_2d
+
+## ros2 launch diablo_slam cartographer_2d.launch.py
+启动了三个节点
+cartographer_node---官方
+cartographer_occupancy_grid_node---官方
+rviz2
+
+
+
+
+## ros2 launch diablo_rviz view_map.launch.py
+
+
+
+## ros2 launch diablo_slam map_save.launch.py 
+
+
+
+# 导航---官方导航
+存在bug：map->odom没有找到-----解决：在rviz当中给出初始位置姿态
+## ros2 launch diablo_navigation2 nav2.launch.py use_map:=map_2025-11-22-173958 
+
+bringup_launch.py---官方
+rviz2
+
+### bringup_launch.py（humble/nav2_bringup/launch/bringup_launch.py）
+
+节点
+nav2_container
+
+launch文件
+slam_launch.py
+localization_launch.py
+navigation_launch.py
+
+
+
+# odin基础移植
+
 
