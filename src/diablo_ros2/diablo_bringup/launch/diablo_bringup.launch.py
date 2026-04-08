@@ -60,22 +60,25 @@ def generate_launch_description():
                 PythonLaunchDescriptionSource([diablo_ctrl_dir,'/diablo_ctrl.launch.py'])
             ),
 
-            # 6) 坐标系：机器人静态/动态 TF
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource([diablo_tf_dir,'/diablo_tf.launch.py'])
-            ),
+            # 关闭TF 只保留odin
 
-            # 7) 状态估计：融合轮速里程计与 IMU 输出 /odom
-            Node(
-                package='robot_localization',
-                executable='ekf_node',
-                name='ekf_filter_node',
-                output='screen',
-                parameters=[os.path.join(get_package_share_directory("diablo_bringup"), 'config', 'diablo_ekf.yaml')],
-                remappings=[
-                    ('/odometry/filtered', '/odom'),
-                ],
-            ),
+            # # 6) 坐标系：机器人静态/动态 TF
+            # IncludeLaunchDescription(
+            #     PythonLaunchDescriptionSource([diablo_tf_dir,'/diablo_tf.launch.py'])
+            # ),
+
+            # 使用odin的里程计
+            # # 7) 状态估计：融合轮速里程计与 IMU 输出 /odom
+            # Node(
+            #     package='robot_localization',
+            #     executable='ekf_node',
+            #     name='ekf_filter_node',
+            #     output='screen',
+            #     parameters=[os.path.join(get_package_share_directory("diablo_bringup"), 'config', 'diablo_ekf.yaml')],
+            #     remappings=[
+            #         ('/odometry/filtered', '/odom'),
+            #     ],
+            # ),
 
             # # 8) 感知转换：将 Livox 点云投影为 2D LaserScan 供导航/建图使用
             # Node(
@@ -109,11 +112,13 @@ def generate_launch_description():
                 output = 'screen'
             ),
 
-            # 10) 里程计发布：基于电机状态计算轮式里程计
-            Node(
-                package = 'diablo_odom',
-                executable = 'odom_publish_node',
-                output = 'screen'
-            ),
+
+            # 使用odin的里程计
+            # # 10) 里程计发布：基于电机状态计算轮式里程计
+            # Node(
+            #     package = 'diablo_odom',
+            #     executable = 'odom_publish_node',
+            #     output = 'screen'
+            # ),
         ]
     )
