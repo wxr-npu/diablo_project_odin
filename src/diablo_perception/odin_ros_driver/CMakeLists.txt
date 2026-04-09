@@ -240,6 +240,7 @@ elseif(ROS_VERSION STREQUAL "ROS2")
     find_package(std_msgs REQUIRED)
     find_package(sensor_msgs REQUIRED)
     find_package(nav_msgs REQUIRED)
+    find_package(std_srvs REQUIRED)
     find_package(visualization_msgs REQUIRED)
     find_package(cv_bridge REQUIRED)
     find_package(image_transport REQUIRED)
@@ -359,6 +360,27 @@ elseif(ROS_VERSION STREQUAL "ROS2")
         message_filters
     )
 
+    add_executable(pointcloud_saver_ros2_node src/pointcloud_saver_ros2_node.cpp)
+    target_link_libraries(pointcloud_saver_ros2_node
+        ${PCL_LIBRARIES}
+    )
+    ament_target_dependencies(pointcloud_saver_ros2_node
+        rclcpp
+        sensor_msgs
+        std_srvs
+        pcl_conversions
+    )
+
+    add_executable(pcd2pgm_ros2_node src/pcd2pgm_ros2_node.cpp)
+    target_link_libraries(pcd2pgm_ros2_node
+        ${PCL_LIBRARIES}
+    )
+    ament_target_dependencies(pcd2pgm_ros2_node
+        rclcpp
+        nav_msgs
+        pcl_conversions
+    )
+
     # Installation rules - ensure all install targets are defined before ament_package()
     # Install executable
     install(TARGETS 
@@ -366,6 +388,8 @@ elseif(ROS_VERSION STREQUAL "ROS2")
         pcd2depth_ros2_node
         cloud_reprojection_ros2_node
         image_overlay_node
+        pointcloud_saver_ros2_node
+        pcd2pgm_ros2_node
         EXPORT export_${PROJECT_NAME}
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
@@ -410,6 +434,7 @@ elseif(ROS_VERSION STREQUAL "ROS2")
         std_msgs 
         sensor_msgs 
         nav_msgs 
+        std_srvs
         visualization_msgs
         cv_bridge
         image_transport

@@ -562,3 +562,111 @@ export CYCLONEDDS_URI='<CycloneDDS><Domain id="any"><Discovery><ParticipantIndex
 ros2 daemon stop
 ros2 run rqt_tf_tree rqt_tf_tree
 
+
+
+# neupan
+source ~/miniconda3_new/etc/profile.d/conda.sh
+
+conda activate neupan
+
+. install/setup.bash 
+
+ros2 launch diablo_neupan diablo_neupan.launch.py 
+
+# 原ROS1方法
+### 1. 配置建图模式
+编辑 `ros_ws/src/odin_ros_driver/config/control_command.yaml`，将 `custom_map_mode` 设置为 `1`，表示进入建图模式。
+
+### 2. 启动建图
+终端 1 - 启动 Odin 驱动：
+``` shell
+source ros_ws/devel/setup.bash
+roslaunch odin_ros_driver odin1_ros1.launch
+```
+
+终端 2 - 运行建图脚本：
+``` shell
+# bash scripts/map_recording.sh awesome_map
+bash src/diablo_perception/odin_ros_driver/script/map_recording_ros2.sh awesome_map
+```
+
+生成的 pcd 地图会保存到 `ros_ws/src/pcd2pgm/maps/`，栅格地图会保存到 `ros_ws/src/map_planner/maps/`。
+
+地图构建完成后，可以使用 GIMP 对栅格地图进行查看和修改：
+``` shell
+sudo apt update && sudo apt install gimp
+```
+
+### 3. 重定位与导航
+启用重定位时，编辑 `control_command.yaml`：
+``` shell
+custom_map_mode: 2
+relocalization_map_abs_path: "/abs/path/to/your/map"
+```
+
+然后启动：
+``` shell
+roslaunch odin_ros_driver odin1_ros1.launch
+```
+
+使用 rqt 查看 TF 树，确认链路为 `map -> odom -> odin1_base_link`。
+
+重定位时，可能需要先让机器人做一点轻微运动，系统才能稳定完成定位。
+
+
+
+# 现ROS2移植
+
+### 1. 配置建图模式
+编辑 `odin_ros_driver/config/control_command.yaml`，将 `custom_map_mode` 设置为 `1`，表示进入建图模式。
+
+### 2. 启动建图
+终端 1 - 启动 Odin 驱动：（这里直接启动了整体的bringup，但其实最关键的是odin的驱动）
+``` shell
+source ros_ws/devel/setup.bash
+ros2 launch diablo_bringup diablo_bringup_odin.launch.py 
+
+```
+
+终端 2 - 运行建图脚本：
+``` shell
+# bash scripts/map_recording.sh awesome_map
+bash src/diablo_perception/odin_ros_driver/script/map_recording_ros2.sh mapname 0.05 true
+```
+
+
+运行完建图脚本会生成三个地图，共四个文件
+
+1、点云地图（PCD）（src/diablo_perception/odin_ros_driver/odin_map/pcd）
+test1_map.pcd
+
+2、二维栅格地图图像（PGM）（src/diablo_ros2/diablo_navigation2/maps/odin_maps）
+test1_map.pgm
+
+3、二维栅格地图元数据（YAML）（src/diablo_ros2/diablo_navigation2/maps/odin_maps）
+test1_map.yaml
+
+4、Odin 三维重定位地图（BIN）（src/diablo_perception/odin_ros_driver/odin_map）
+map_20260409_155107.bin
+
+
+
+### 3. 重定位
+启用重定位时，编辑 `control_command.yaml`：
+``` shell
+custom_map_mode: 2
+relocalization_map_abs_path: "bin地图保存路径"
+```
+
+然后启动：
+``` shell
+ros2 launch diablo_bringup diablo_bringup_odin.launch.py 
+
+```
+
+使用 rqt 查看 TF 树，确认链路为 `map -> odom -> odin1_base_link`。
+
+重定位时，可能需要先让机器人做一点轻微运动，系统才能稳定完成定位。
+
+
+### 4.导航

@@ -165,8 +165,13 @@ double get_ptp_smoothed_offset();
 inline ros::Time ns_to_ros_time(uint64_t timestamp_ns) {
     ros::Time t;
     #ifdef ROS2
-        t.sec = static_cast<int32_t>(timestamp_ns / 1000000000);
-        t.nanosec = static_cast<uint32_t>(timestamp_ns % 1000000000);
+        // For ROS2 navigation integration, prefer host ROS time to avoid
+        // sensor timestamp drift affecting TF/odom consistency.
+        (void)timestamp_ns;
+        const rclcpp::Time now = rclcpp::Clock(RCL_ROS_TIME).now();
+        const int64_t now_ns = now.nanoseconds();
+        t.sec = static_cast<int32_t>(now_ns / 1000000000LL);
+        t.nanosec = static_cast<uint32_t>(now_ns % 1000000000LL);
     #else
         t.sec = static_cast<uint32_t>(timestamp_ns / 1000000000);
         t.nsec = static_cast<uint32_t>(timestamp_ns % 1000000000);
@@ -1274,20 +1279,6 @@ void publishRgb(capture_Image_List_t *stream) {
             switch(odom_type) {
                 case OdometryType::STANDARD:
                     {
-                    if (getRosNodeControl()->sendOdomBaseLinkTF()) {
-                        geometry_msgs::msg::TransformStamped transformStamped;
-                        transformStamped.header.stamp = msg.header.stamp;
-                        transformStamped.header.frame_id = "odom";
-                        transformStamped.child_frame_id = "odin1_base_link";
-                        transformStamped.transform.translation.x = msg.pose.pose.position.x;
-                        transformStamped.transform.translation.y = msg.pose.pose.position.y;
-                        transformStamped.transform.translation.z = msg.pose.pose.position.z;
-                        transformStamped.transform.rotation.x = msg.pose.pose.orientation.x;
-                        transformStamped.transform.rotation.y = msg.pose.pose.orientation.y;
-                        transformStamped.transform.rotation.z = msg.pose.pose.orientation.z;
-                        transformStamped.transform.rotation.w = msg.pose.pose.orientation.w;
-                        tf_broadcaster->sendTransform(transformStamped);
-                    }
                     odom_publisher_->publish(msg);
 
                     // Publish odom trajectory as visualization markers (green lines connecting adjacent points)
@@ -1347,7 +1338,23 @@ void publishRgb(capture_Image_List_t *stream) {
                     }
                     break;
                 case OdometryType::HIGHFREQ:
+                    {
+                    if (getRosNodeControl()->sendOdomBaseLinkTF()) {
+                        geometry_msgs::msg::TransformStamped transformStamped;
+                        transformStamped.header.stamp = msg.header.stamp;
+                        transformStamped.header.frame_id = "odom";
+                        transformStamped.child_frame_id = "odin1_base_link";
+                        transformStamped.transform.translation.x = msg.pose.pose.position.x;
+                        transformStamped.transform.translation.y = msg.pose.pose.position.y;
+                        transformStamped.transform.translation.z = msg.pose.pose.position.z;
+                        transformStamped.transform.rotation.x = msg.pose.pose.orientation.x;
+                        transformStamped.transform.rotation.y = msg.pose.pose.orientation.y;
+                        transformStamped.transform.rotation.z = msg.pose.pose.orientation.z;
+                        transformStamped.transform.rotation.w = msg.pose.pose.orientation.w;
+                        tf_broadcaster->sendTransform(transformStamped);
+                    }
                     odom_highfreq_publisher_->publish(std::move(msg));
+                    }
                     break;
                 case OdometryType::TRANSFORM:
                     {

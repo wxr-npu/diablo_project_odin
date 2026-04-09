@@ -1,0 +1,29 @@
+planner_config_file: "planner.yaml"
+# Set this to a real trained model path before running.
+dune_checkpoint: "/home/tianbot/diablo_ws/src/diablo_ros2/diablo_neupan/model/model_5000.pth"
+
+refresh_initial_path: true
+flip_angle: false
+include_initial_path_direction: false
+
+frame:
+  map: "map"
+  base: "odin1_base_link"
+  lidar: "odin1_lidar_link"
+
+topic:
+  scan: "/scan"
+  cmd_vel: "/cmd_vel"
+  # Nav2 global planner output path topic
+  path: "/plan"
+  waypoints: "/waypoints"
+  # RViz2/Nav2 default goal topic
+  goal: "/goal_pose"
+  arrive: "/neupan/arrive"
+
+scan_range: [0.2, 8.0]
+scan_angle: [-0.7853, 0.7853]
+scan_downsample: 1
+
+marker_size: 0.05
+marker_z: 0.25
