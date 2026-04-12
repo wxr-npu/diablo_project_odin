@@ -321,7 +321,7 @@ fi
 
 log "触发 Odin 内部 .bin 地图保存..."
 save_trigger_time="$(date +%s)"
-bash "${SET_PARAM_SH}" save_map 1
+(cd "${PKG_DIR}" && ./set_param.sh save_map 1)
 
 # odin_ros_driver 内部在监控到 save_map 从 1 变为 0 时，才触发地图文件传输。
 # 部分固件/运行状态下 save_map 不会自动回到 0，这里做兜底触发。
@@ -343,7 +343,7 @@ else
 
   if ! saved_bin="$(wait_for_latest_bin "${mapping_dest_dir}" "${half_timeout}" "${save_trigger_time}")"; then
     log "未检测到新 .bin，补发一次 save_map=0 触发传输。"
-    bash "${SET_PARAM_SH}" save_map 0
+    (cd "${PKG_DIR}" && ./set_param.sh save_map 0)
     save_zero_sent="true"
 
     remain_timeout=$((WAIT_TIMEOUT_SEC - half_timeout))
@@ -360,7 +360,7 @@ log "Odin 三维地图已保存: ${saved_bin}"
 
 if [[ "${save_zero_sent}" != "true" ]]; then
   # 正常拿到文件后，仍将 save_map 复位为 0，便于下次触发边沿。
-  bash "${SET_PARAM_SH}" save_map 0
+  (cd "${PKG_DIR}" && ./set_param.sh save_map 0)
 fi
 
 read -r -p "按 [Enter] 将 custom_map_mode 切到 2 并写入重定位地图路径，输入其他任意内容跳过: " input

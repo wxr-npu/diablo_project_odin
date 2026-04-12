@@ -1,3 +1,4 @@
+整体文件解读与neupan移植实现
 
 # bringup
 ros2 launch diablo_bringup diablo_bringup.launch.py 
@@ -633,6 +634,12 @@ ros2 launch diablo_bringup diablo_bringup_odin.launch.py
 # bash scripts/map_recording.sh awesome_map
 bash src/diablo_perception/odin_ros_driver/script/map_recording_ros2.sh mapname
 ```
+如果卡死则需要杀死进程
+``` shell
+pkill -f pcd2pgm_ros2_node || true
+
+```
+
 
 
 运行完建图脚本会生成三个地图，共四个文件

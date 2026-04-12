@@ -157,7 +157,7 @@ def generate_launch_description():
         DeclareLaunchArgument('map_topic', default_value='/map'),
         DeclareLaunchArgument('map_yaml', default_value=''),
         # 这里修改地图名称
-        DeclareLaunchArgument('map_file_name', default_value='officemap'),
+        DeclareLaunchArgument('map_file_name', default_value='diablo_stand_office'),
         DeclareLaunchArgument('goal_topic', default_value='/move_base_simple/goal'),
         DeclareLaunchArgument('path_topic', default_value='/initial_path'),
         DeclareLaunchArgument('service_name', default_value='/map_planner/plan'),
