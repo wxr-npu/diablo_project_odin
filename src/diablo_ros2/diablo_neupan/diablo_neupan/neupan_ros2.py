@@ -1,7 +1,83 @@
 #!/usr/bin/env python3
+import argparse
 import os
+import sys
 import threading
 from math import atan2, cos, sin
+from pathlib import Path as FsPath
+
+
+def _maybe_reexec_with_neupan_python() -> None:
+    """Re-exec with neupan38 Python to avoid mixed system/conda dependency conflicts."""
+    if os.environ.get("NEUPAN_NO_REEXEC", "0") == "1":
+        return
+    if os.environ.get("NEUPAN_ALREADY_REEXEC", "0") == "1":
+        return
+
+    target_python = FsPath.home() / "miniconda3_new" / "envs" / "neupan38" / "bin" / "python"
+    if not target_python.is_file():
+        return
+
+    current_python = FsPath(sys.executable).resolve()
+    target_resolved = target_python.resolve()
+    if current_python == target_resolved:
+        return
+
+    env = os.environ.copy()
+    env["NEUPAN_ALREADY_REEXEC"] = "1"
+    os.execve(str(target_resolved), [str(target_resolved), *sys.argv], env)
+
+
+def _append_neupan_source_paths() -> None:
+    """Add local diablo_neupan-bundled NeuPAN source path into sys.path."""
+    current = FsPath(__file__).resolve()
+    search_roots = [FsPath.cwd(), current.parent]
+    search_roots.extend(list(current.parents))
+
+    relative_candidates = [
+        FsPath("NeuPAN"),
+        FsPath("src/diablo_ros2/diablo_neupan/NeuPAN"),
+    ]
+
+    seen = set()
+    for root in search_roots:
+        for rel in relative_candidates:
+            candidate = (root / rel).resolve()
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            if (candidate / "neupan").is_dir() and str(candidate) not in sys.path:
+                sys.path.insert(0, str(candidate))
+
+
+def _resolve_default_config_path() -> str:
+    """Resolve default neupan_config.yaml for both source and install layouts."""
+    env_cfg = os.environ.get("NEUPAN_CONFIG_FILE", "")
+    if env_cfg and os.path.isfile(env_cfg):
+        return env_cfg
+
+    script_dir = FsPath(__file__).resolve().parent
+    candidates = [
+        script_dir.parent / "config" / "neupan_config.yaml",  # source layout
+        script_dir.parent.parent / "share" / "diablo_neupan" / "config" / "neupan_config.yaml",  # install layout
+    ]
+
+    try:
+        from ament_index_python.packages import get_package_share_directory
+
+        pkg_cfg = FsPath(get_package_share_directory("diablo_neupan")) / "config" / "neupan_config.yaml"
+        candidates.append(pkg_cfg)
+    except Exception:
+        pass
+
+    for cfg in candidates:
+        if cfg.is_file():
+            return str(cfg)
+    return ""
+
+
+_maybe_reexec_with_neupan_python()
+_append_neupan_source_paths()
 
 import numpy as np
 import rclpy
@@ -26,13 +102,20 @@ else:
 
 
 class NeuPANCoreROS2(Node):
-    def __init__(self) -> None:
+    def __init__(self, cli_config_file: str = "") -> None:
         super().__init__("neupan_node")
 
-        self.declare_parameter("config_file", "")
-        config_file = self.get_parameter("config_file").get_parameter_value().string_value
+        default_cfg = _resolve_default_config_path()
+        self.declare_parameter("config_file", default_cfg)
+        param_cfg = self.get_parameter("config_file").get_parameter_value().string_value
+
+        # Priority: CLI arg > ROS param > auto-discovered default config.
+        config_file = cli_config_file or param_cfg or default_cfg
         if not config_file:
-            raise RuntimeError("Parameter 'config_file' is required")
+            raise RuntimeError(
+                "No config file specified. Use --config-file /abs/path/to/neupan_config.yaml "
+                "or set ROS parameter config_file."
+            )
         if not os.path.isfile(config_file):
             raise RuntimeError(f"Config file not found: {config_file}")
 
@@ -261,7 +344,6 @@ class NeuPANCoreROS2(Node):
             ps = PoseStamped()
             ps.header.frame_id = self.config["frame"]["map"]
             ps.header.stamp = path.header.stamp
-            ps.header.seq = i
             ps.pose.position.x = float(point[0, 0])
             ps.pose.position.y = float(point[1, 0])
             ps.pose.orientation = self.yaw_to_quat(float(point[2, 0]))
@@ -348,8 +430,16 @@ class NeuPANCoreROS2(Node):
 
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = NeuPANCoreROS2()
+    parser = argparse.ArgumentParser(description="NeuPAN ROS2 standalone node")
+    parser.add_argument(
+        "--config-file",
+        default="",
+        help="Absolute path to neupan_config.yaml. If omitted, auto-discovery is used.",
+    )
+    known_args, ros_args = parser.parse_known_args(args=args)
+
+    rclpy.init(args=ros_args)
+    node = NeuPANCoreROS2(cli_config_file=known_args.config_file)
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

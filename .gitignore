@@ -8,3 +8,6 @@ __pycache__/
 backup.tar.xz
 
 tom06s/
+
+.vscode/
+.venv_neupan38/

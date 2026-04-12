@@ -631,7 +631,7 @@ ros2 launch diablo_bringup diablo_bringup_odin.launch.py
 终端 2 - 运行建图脚本：
 ``` shell
 # bash scripts/map_recording.sh awesome_map
-bash src/diablo_perception/odin_ros_driver/script/map_recording_ros2.sh mapname 0.05 true
+bash src/diablo_perception/odin_ros_driver/script/map_recording_ros2.sh mapname
 ```
 
 
@@ -670,3 +670,50 @@ ros2 launch diablo_bringup diablo_bringup_odin.launch.py
 
 
 ### 4.导航
+在完成重定位之后
+启动
+``` shell
+ros2 launch diablo_odin_mapplanner whole.launch.py 
+
+```
+
+这个 launch 文件主要启动以下 6 个节点：
+
+1. `map_server`
+  - 读取静态地图 `maps/officemap.yaml`
+  - 发布 `/map`
+
+2. `lifecycle_manager_map_server`
+  - 负责拉起并激活 `map_server`
+
+3. `map_planner`
+  - 全局规划器
+  - 负责 A* 路径规划、地图膨胀、发布全局路径
+  - 提供 `/map_planner/plan` 规划服务
+
+4. `goal_state_machine`
+  - 目标状态机
+  - 订阅到达信号并在需要时触发重新规划
+
+5. `odin1_to_lidar`
+  - 发布机器人底盘到雷达的静态 TF
+
+6. `pc_to_scan`
+  - 将 `/odin1/cloud_slam` 点云转换为 `/scan`
+
+
+
+
+在启动 neupan 之前，先激活对应的 Conda 环境：
+
+```shell
+source /opt/ros/galactic/setup.bash
+source /home/tianbot/diablo_ws/install/setup.bash
+
+
+source ~/miniconda3_new/etc/profile.d/conda.sh
+conda env list
+conda activate neupan38
+python /home/tianbot/diablo_ws/src/diablo_ros2/diablo_neupan/diablo_neupan/neupan_ros2.py
+```
+

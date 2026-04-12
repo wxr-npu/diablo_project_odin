@@ -43,7 +43,7 @@ WS_ROOT="$(cd "${PKG_DIR}/../../.." && pwd)"
 CONFIG_FILE="${PKG_DIR}/config/control_command.yaml"
 SET_PARAM_SH="${PKG_DIR}/set_param.sh"
 ROS2_SETUP="${WS_ROOT}/install/setup.bash"
-GRID_MAP_DIR="${WS_ROOT}/src/diablo_ros2/diablo_navigation2/maps/odin_maps"
+GRID_MAP_DIR="${WS_ROOT}/src/diablo_ros2/diablo_odin_mapplanner/maps"
 
 pointcloud_saver_pid=""
 pcd2pgm_pid=""
@@ -192,15 +192,21 @@ wait_for_file() {
 wait_for_latest_bin() {
   local directory="$1"
   local timeout_sec="$2"
+  local since_epoch="$3"
   local elapsed=0
 
   while [[ ${elapsed} -lt ${timeout_sec} ]]; do
-    local latest
-    latest="$(find "${directory}" -maxdepth 1 -type f -name '*.bin' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -n 1 | cut -d' ' -f2-)"
-    if [[ -n "${latest}" && -f "${latest}" ]]; then
-      printf '%s' "${latest}"
+    local latest_line
+    latest_line="$(find "${directory}" -type f -name '*.bin' -printf '%T@ %p\n' 2>/dev/null | awk -v s="${since_epoch}" '$1 >= s' | sort -n | tail -n 1)"
+    if [[ -n "${latest_line}" ]]; then
+      printf '%s' "${latest_line#* }"
       return 0
     fi
+
+    if (( elapsed > 0 && elapsed % 10 == 0 )); then
+      log "等待 .bin 中... 已等待 ${elapsed}s，目录: ${directory}"
+    fi
+
     sleep 2
     elapsed=$((elapsed + 2))
   done
@@ -314,7 +320,12 @@ if [[ -n "${pcd2pgm_pid}" ]]; then
 fi
 
 log "触发 Odin 内部 .bin 地图保存..."
+save_trigger_time="$(date +%s)"
 bash "${SET_PARAM_SH}" save_map 1
+
+# odin_ros_driver 内部在监控到 save_map 从 1 变为 0 时，才触发地图文件传输。
+# 部分固件/运行状态下 save_map 不会自动回到 0，这里做兜底触发。
+save_zero_sent="false"
 
 saved_bin=""
 if [[ -n "${mapping_file_name}" ]]; then
@@ -324,12 +335,33 @@ if [[ -n "${mapping_file_name}" ]]; then
     die "等待超时，未生成文件: ${expected_bin}"
   fi
 else
-  log "等待 ${mapping_dest_dir} 中最新的 .bin 文件..."
-  if ! saved_bin="$(wait_for_latest_bin "${mapping_dest_dir}" "${WAIT_TIMEOUT_SEC}")"; then
-    die "等待超时，未在 ${mapping_dest_dir} 中检测到 .bin 文件。"
+  log "等待 ${mapping_dest_dir} 中新生成的 .bin 文件..."
+  half_timeout=$((WAIT_TIMEOUT_SEC / 2))
+  if (( half_timeout < 10 )); then
+    half_timeout=10
+  fi
+
+  if ! saved_bin="$(wait_for_latest_bin "${mapping_dest_dir}" "${half_timeout}" "${save_trigger_time}")"; then
+    log "未检测到新 .bin，补发一次 save_map=0 触发传输。"
+    bash "${SET_PARAM_SH}" save_map 0
+    save_zero_sent="true"
+
+    remain_timeout=$((WAIT_TIMEOUT_SEC - half_timeout))
+    if (( remain_timeout < 10 )); then
+      remain_timeout=10
+    fi
+
+    if ! saved_bin="$(wait_for_latest_bin "${mapping_dest_dir}" "${remain_timeout}" "${save_trigger_time}")"; then
+      die "等待超时，未在 ${mapping_dest_dir} 中检测到新 .bin 文件。请检查驱动日志中 save_map 1->0 变化与 map transfer 信息。"
+    fi
   fi
 fi
 log "Odin 三维地图已保存: ${saved_bin}"
+
+if [[ "${save_zero_sent}" != "true" ]]; then
+  # 正常拿到文件后，仍将 save_map 复位为 0，便于下次触发边沿。
+  bash "${SET_PARAM_SH}" save_map 0
+fi
 
 read -r -p "按 [Enter] 将 custom_map_mode 切到 2 并写入重定位地图路径，输入其他任意内容跳过: " input
 if [[ -z "${input}" ]]; then
