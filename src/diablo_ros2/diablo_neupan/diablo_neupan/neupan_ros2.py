@@ -223,8 +223,8 @@ class NeuPANCoreROS2(Node):
         self.plan_pub.publish(self.generate_path_msg(info["opt_state_list"]))
         self.ref_state_pub.publish(self.generate_path_msg(info["ref_state_list"]))
 
-        if not self.arrive:
-            self.vel_pub.publish(self.generate_twist_msg(action))
+        # Always publish cmd_vel; generate_twist_msg() returns zero velocity when stop/arrive.
+        self.vel_pub.publish(self.generate_twist_msg(action))
 
         self.point_markers_pub_dune.publish(self.generate_points_markers_msg(self.neupan_planner.dune_points, 0.63, 0.12, 0.94))
         self.point_markers_pub_nrmp.publish(self.generate_points_markers_msg(self.neupan_planner.nrmp_points, 1.0, 0.5, 0.0))

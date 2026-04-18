@@ -15,5 +15,4 @@ tom06s/
 *.bin
 *.pcd
 *.pgm
-
-src/diablo_ros2/diablo_odin_mapplanner/maps/
+*.yaml

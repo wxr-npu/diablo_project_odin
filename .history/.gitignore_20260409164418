@@ -11,9 +11,3 @@ tom06s/
 
 .vscode/
 .venv_neupan38/
-
-*.bin
-*.pcd
-*.pgm
-
-src/diablo_ros2/diablo_odin_mapplanner/maps/

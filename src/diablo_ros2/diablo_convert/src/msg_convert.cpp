@@ -1,6 +1,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "motion_msgs/msg/motion_ctrl.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include <cmath>
 
 class MsgConvert : public rclcpp::Node
 {
@@ -8,6 +9,10 @@ public:
 
   MsgConvert() : Node("msg_convert")
   {
+    cmd_vel_timeout_sec_ = this->declare_parameter<double>("cmd_vel_timeout_sec", 0.25);
+    cmd_vel_deadband_ = this->declare_parameter<double>("cmd_vel_deadband", 1e-3);
+    last_cmd_vel_time_ = this->now();
+
     // 创建一个发布器来发布自定义消息
     motion_cmd_pub = this->create_publisher<motion_msgs::msg::MotionCtrl>("diablo/MotionCmd", 10);
     // 创建一个订阅器来订阅cmd_vel消息
@@ -25,12 +30,24 @@ public:
 private:
   motion_msgs::msg::MotionCtrl vel_msg;
   motion_msgs::msg::MotionCtrl key_msg;
+  rclcpp::Time last_cmd_vel_time_;
+  bool has_cmd_vel_ = false;
+  double cmd_vel_timeout_sec_ = 0.25;
+  double cmd_vel_deadband_ = 1e-3;
+
+  bool nav_cmd_is_nonzero() const
+  {
+    return std::fabs(vel_msg.value.forward) > cmd_vel_deadband_ ||
+           std::fabs(vel_msg.value.left) > cmd_vel_deadband_;
+  }
 
   void msgconvert_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
   {
     // 将传进来的cmd_vel速度信息赋值给自定义消息
     vel_msg.value.forward = msg->linear.x;
     vel_msg.value.left = msg->angular.z;
+    last_cmd_vel_time_ = this->now();
+    has_cmd_vel_ = true;
     RCLCPP_INFO(this->get_logger(), "start cmd_vel -> motion_msgs");
   }
 
@@ -46,10 +63,18 @@ private:
 
   void timer_callback()
   {
+    const bool cmd_vel_is_fresh = has_cmd_vel_ &&
+      (this->now() - last_cmd_vel_time_).seconds() <= cmd_vel_timeout_sec_;
+
+    if (!cmd_vel_is_fresh) {
+      // Clear stale navigation velocity to avoid continuing movement after planner stops.
+      vel_msg.value.forward = 0.0;
+      vel_msg.value.left = 0.0;
+    }
     
     if (!key_msg.emergency_mode)//判断当前是否为紧急模式
     {
-      if(vel_msg.value.forward != 0.0 || vel_msg.value.left != 0.0)//导航模式下只发布cmd_vel的速度消息，其它模式与键盘设置后的机器人姿态保持一致
+      if(cmd_vel_is_fresh && nav_cmd_is_nonzero())//导航模式下只发布cmd_vel的速度消息，其它模式与键盘设置后的机器人姿态保持一致
       {
         vel_msg.value.up = key_msg.value.up;
         vel_msg.value.pitch = key_msg.value.pitch;
