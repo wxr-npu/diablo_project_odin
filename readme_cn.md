@@ -5,6 +5,10 @@
 - 建图、重定位、导航三类场景
 - 常见故障快速定位（重点：到点后转圈、给点不走）
 
+
+后续规划：
+在大型室外场景当中，需要融合GPS信息，单靠odin无法完成重定位
+
 ## 1. 工程结构（核心模块）
 
 ```text
@@ -222,7 +226,3 @@ ros2 launch diablo_odin_mapplanner whole.launch.py
 python /home/tianbot/diablo_ws/src/diablo_ros2/diablo_neupan/diablo_neupan/neupan_ros2.py
 ```
 
-## 10. 维护记录
-
-- 2026-04：修复“到点后原地转圈”问题（cmd_vel 残留 + stop 不主动刹停）。
-- 若后续替换局部规划器（例如 Nav2 Controller），仍建议保留转换层超时保护作为安全兜底。
