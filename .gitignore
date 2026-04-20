@@ -17,5 +17,5 @@ tom06s/
 *.pgm
 
 src/diablo_ros2/diablo_odin_mapplanner/maps/
-
-.venv_neupan38
+.history/
+.venv_neupan38/
