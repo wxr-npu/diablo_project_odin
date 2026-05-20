@@ -9,6 +9,9 @@
 #include <queue>
 #include <vector>
 
+// 该文件实现了一个基于占用栅格地图的A*（8向）路径规划器。
+// 主要功能：接收地图、膨胀障碍物、监听目标/服务请求、将机器人位姿转换到地图坐标并执行A*搜索。
+
 namespace
 {
 struct GridNode
@@ -28,6 +31,10 @@ constexpr double kSqrt2 = 1.41421356237;
 
 namespace diablo_odin_mapplanner
 {
+// MapPlanner 类：封装从地图订阅到路径输出的完整流程
+// - 订阅原始地图并生成膨胀地图（考虑机器人尺寸）
+// - 监听简易目标话题 `/move_base_simple/goal` 和提供同步服务 `PlanPath`
+// - 使用8连通A*在膨胀地图上搜索可行路径
 
 MapPlanner::MapPlanner(const rclcpp::NodeOptions & options)
 : Node("map_planner", options)
@@ -49,6 +56,7 @@ MapPlanner::MapPlanner(const rclcpp::NodeOptions & options)
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
+  // 发布初始路径（可配置是否发布），使用 transient_local 保证迟到的订阅者也能收到
   path_pub_ = this->create_publisher<nav_msgs::msg::Path>("initial_path", rclcpp::QoS(1).transient_local());
   inflated_map_pub_ =
     this->create_publisher<nav_msgs::msg::OccupancyGrid>("inflated_map", rclcpp::QoS(1).transient_local());
@@ -79,6 +87,7 @@ void MapPlanner::mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
   }
 
   inflation_cells_ = std::max(1, static_cast<int>(std::ceil(inflation_radius_ / map_.info.resolution)));
+  // 根据配置的膨胀半径（米）计算需要膨胀的栅格数，并执行膨胀
   inflateMap();
   map_ready_ = true;
   map_frame_ = map_.header.frame_id.empty() ? map_frame_ : map_.header.frame_id;
@@ -196,6 +205,7 @@ bool MapPlanner::getRobotPose(geometry_msgs::msg::PoseStamped & pose) const
     pose.pose.orientation = tf.transform.rotation;
     return true;
   } catch (const tf2::TransformException & ex) {
+    // 获取机器人在地图坐标系下的位姿失败（TF不可用或超时）
     RCLCPP_WARN(this->get_logger(), "TF lookup failed: %s", ex.what());
     return false;
   }
@@ -303,6 +313,7 @@ bool MapPlanner::plan(
     const int my = idx / width;
     geometry_msgs::msg::PoseStamped pose;
     pose.header = path.header;
+    // 将栅格坐标转换为世界坐标，使用格子中心
     pose.pose.position = mapToWorld(mx, my);
     pose.pose.orientation.w = 1.0;
     path.poses.push_back(pose);
@@ -325,6 +336,7 @@ void MapPlanner::inflateMap()
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       const int index = toIndex(x, y);
+      // 跳过非占用栅格；注意 nav_msgs 占用值范围：0-100（-1表示未知）
       if (map_.data[static_cast<size_t>(index)] < obstacle_threshold_ ||
         map_.data[static_cast<size_t>(index)] < 0)
       {

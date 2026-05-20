@@ -32,7 +32,7 @@ def generate_launch_description():
             #     description='Enable NeuPAN local planner pipeline (scan converter + neupan node)'
             # ),
 
-            # 提高 CycloneDDS 自动参与者索引上限，避免多节点同时启动时域创建失败
+            # 提高 CYCLONEDDS_URI 自动参与者索引上限，避免多节点同时启动时域创建失败
             SetEnvironmentVariable(
                 name='CYCLONEDDS_URI',
                 value='<CycloneDDS><Domain id="any"><Discovery><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>120</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'

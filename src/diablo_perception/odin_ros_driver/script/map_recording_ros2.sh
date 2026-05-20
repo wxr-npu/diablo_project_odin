@@ -15,6 +15,7 @@ VOXEL_SIZE="${2:-0.05}"           # PCD 保存体素大小
 APPLY_FILTER="${3:-true}"         # PCD 保存是否统计滤波
 WAIT_TIMEOUT_SEC="${4:-180}"      # 等待服务/文件/话题超时时间（秒）
 
+# 统一解析布尔参数，兼容 true/false、1/0、yes/no 等写法。
 normalize_bool() {
   local raw
   raw="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
@@ -61,6 +62,7 @@ die() {
 }
 
 cleanup() {
+  # 退出时确保后台节点被优雅停止，避免残留 ROS2 进程。
   for pid in "${pointcloud_saver_pid}" "${pcd2pgm_pid}"; do
     stop_process "${pid}" "3"
   done
@@ -102,6 +104,7 @@ stop_process() {
 yaml_value() {
   local key="$1"
   local raw
+  # 直接从 control_command.yaml 中提取关键参数，避免额外依赖 YAML 解析器。
   raw="$(sed -n "s/^[[:space:]]*${key}:[[:space:]]*\(.*\)$/\1/p" "${CONFIG_FILE}" | head -n 1)"
   raw="${raw%%#*}"
   raw="$(printf '%s' "${raw}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e "s/^['\"]//" -e "s/['\"]$//")"
@@ -113,6 +116,7 @@ wait_for_service() {
   local timeout_sec="$2"
   local elapsed=0
 
+  # 轮询检查某个 ROS2 service 是否可用。
   while [[ ${elapsed} -lt ${timeout_sec} ]]; do
     if ros2 service list 2>/dev/null | grep -qx "${service_name}"; then
       return 0
@@ -127,6 +131,7 @@ resolve_service_name() {
   local timeout_sec="$1"
   local elapsed=0
 
+  # 兼容不同命名空间下的 pointcloud_saver service 名称。
   while [[ ${elapsed} -lt ${timeout_sec} ]]; do
     if ros2 service list 2>/dev/null | grep -qx '/pointcloud_saver/start_recording'; then
       start_recording_service='/pointcloud_saver/start_recording'
@@ -162,6 +167,7 @@ wait_for_topic() {
   local timeout_sec="$2"
   local elapsed=0
 
+  # 等待指定话题出现，常用于确认 /map 已经开始发布。
   while [[ ${elapsed} -lt ${timeout_sec} ]]; do
     if ros2 topic list 2>/dev/null | grep -qx "${topic_name}"; then
       return 0
@@ -177,6 +183,7 @@ wait_for_file() {
   local timeout_sec="$2"
   local elapsed=0
 
+  # 等待明确路径的文件生成，适用于已知文件名的 .pcd / .bin。
   while [[ ${elapsed} -lt ${timeout_sec} ]]; do
     if [[ -f "${target_path}" ]]; then
       printf '%s' "${target_path}"
@@ -195,6 +202,7 @@ wait_for_latest_bin() {
   local since_epoch="$3"
   local elapsed=0
 
+  # 当 .bin 文件名不固定时，查找指定时间点之后最新生成的文件。
   while [[ ${elapsed} -lt ${timeout_sec} ]]; do
     local latest_line
     latest_line="$(find "${directory}" -type f -name '*.bin' -printf '%T@ %p\n' 2>/dev/null | awk -v s="${since_epoch}" '$1 >= s' | sort -n | tail -n 1)"
@@ -216,6 +224,7 @@ wait_for_latest_bin() {
 
 trap cleanup EXIT
 
+# 启动前先确认运行环境完整，避免在中途才暴露缺失依赖。
 command -v ros2 >/dev/null 2>&1 || die "未在 PATH 中找到 ros2，请先 source ROS2 环境。"
 [[ -f "${CONFIG_FILE}" ]] || die "未找到配置文件: ${CONFIG_FILE}"
 [[ -f "${SET_PARAM_SH}" ]] || die "未找到 set_param.sh: ${SET_PARAM_SH}"
@@ -237,6 +246,7 @@ mode="$(yaml_value custom_map_mode)"
 if [[ -z "${mode}" ]]; then
   die "在 ${CONFIG_FILE} 中未找到 custom_map_mode 参数。"
 fi
+# 只有在建图模式下才允许录制，否则地图文件含义会不一致。
 if [[ "${mode}" != "1" ]]; then
   die "Odin 当前不是建图模式，请将 ${CONFIG_FILE} 中 custom_map_mode 设为 1，并重启驱动。"
 fi
@@ -255,6 +265,7 @@ PCD_DIR="${mapping_dest_dir}/pcd"
 PCD_FILE="${PCD_DIR}/${FILENAME}.pcd"
 GRID_BASE="${GRID_MAP_DIR}/${FILENAME}"
 
+# 准备输出目录：PCD 存在 Odin 地图目录下，PGM/YAML 存在 mapplanner 地图目录下。
 mkdir -p "${mapping_dest_dir}" "${PCD_DIR}" "${GRID_MAP_DIR}"
 
 log "ROS2 工作区: ${WS_ROOT}"
@@ -269,6 +280,7 @@ if [[ "${input}" == "q" ]]; then
   exit 0
 fi
 
+# 第一步：启动点云录制节点，负责接收点云并落盘为 PCD。
 log "启动 pointcloud_saver_ros2_node ..."
 ros2 run odin_ros_driver pointcloud_saver_ros2_node --ros-args \
   -p cloud_topic:=/odin1/cloud_slam \
@@ -280,6 +292,7 @@ pointcloud_saver_pid=$!
 resolve_service_name "${WAIT_TIMEOUT_SEC}" || die "等待 pointcloud_saver 服务超时（start_recording/stop_recording/save_map）。"
 log "已识别服务: ${start_recording_service}, ${stop_recording_service}, ${save_map_service}"
 
+# 通过 service 触发开始录制，避免依赖节点内部自动启动逻辑。
 ros2 service call "${start_recording_service}" std_srvs/srv/Trigger "{}" >/dev/null
 log "已开始录制点云。"
 
@@ -291,6 +304,7 @@ if [[ "${input}" == "q" ]]; then
 fi
 
 ros2 service call "${stop_recording_service}" std_srvs/srv/Trigger "{}" >/dev/null
+# 保存点云为 PCD，并确保文件真正落盘后再继续后续步骤。
 ros2 service call "${save_map_service}" std_srvs/srv/Trigger "{}" >/dev/null
 
 if [[ -n "${pointcloud_saver_pid}" ]]; then
@@ -301,6 +315,7 @@ fi
 [[ -f "${PCD_FILE}" ]] || die "未生成 PCD 文件: ${PCD_FILE}"
 log "PCD 保存成功: ${PCD_FILE}"
 
+# 第二步：把 PCD 再转成 /map，供 nav2_map_server 导出 2D 栅格地图。
 log "启动 pcd2pgm_ros2_node，发布 /map ..."
 ros2 run odin_ros_driver pcd2pgm_ros2_node --ros-args \
   -p pcd_file:="${PCD_FILE}" \
@@ -311,6 +326,7 @@ pcd2pgm_pid=$!
 
 wait_for_topic "/map" "${WAIT_TIMEOUT_SEC}" || die "等待 /map 话题超时，无法保存二维地图。"
 log "检测到 /map，开始保存二维栅格地图..."
+# 第三步：用 nav2_map_server 将当前 /map 导出为 pgm+yml。
 ros2 run nav2_map_server map_saver_cli -t /map -f "${GRID_BASE}" --mode trinary
 log "二维栅格地图保存成功: ${GRID_BASE}.yaml 和 ${GRID_BASE}.pgm"
 
@@ -321,6 +337,7 @@ fi
 
 log "触发 Odin 内部 .bin 地图保存..."
 save_trigger_time="$(date +%s)"
+# 第四步：通过参数开关触发 Odin 驱动保存内部 .bin 地图，供重定位使用。
 (cd "${PKG_DIR}" && ./set_param.sh save_map 1)
 
 # odin_ros_driver 内部在监控到 save_map 从 1 变为 0 时，才触发地图文件传输。
@@ -363,6 +380,7 @@ if [[ "${save_zero_sent}" != "true" ]]; then
   (cd "${PKG_DIR}" && ./set_param.sh save_map 0)
 fi
 
+# 可选收尾：把配置切到重定位模式，并把刚保存的 .bin 写回配置文件。
 read -r -p "按 [Enter] 将 custom_map_mode 切到 2 并写入重定位地图路径，输入其他任意内容跳过: " input
 if [[ -z "${input}" ]]; then
   sed -i 's/^[[:space:]]*custom_map_mode:[[:space:]]*[0-9]\+/  custom_map_mode: 2/' "${CONFIG_FILE}"
