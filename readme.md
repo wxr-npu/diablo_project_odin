@@ -1,3 +1,93 @@
+# Diablo ROS2 导航交接说明
+
+本文档用于交接当前 ROS2 导航移植与测试进度，重点回答三件事：
+1. 我已经做了什么
+2. 我现在卡在哪里
+3. 交接后希望你给我什么支持
+
+## 1. 我做了什么（已完成）
+
+### 1.1 导航链路已跑通（Odin + 全局规划 + NeuPAN）
+- 终端1：启动底层驱动与控制链路
+  - `ros2 launch diablo_bringup diablo_bringup_odin.launch.py`
+  - 包含 Odin 驱动、底盘控制、`msg_convert`（`/cmd_vel -> /diablo/MotionCmd`）
+- 终端2：启动地图服务与全局规划
+  - `ros2 launch diablo_odin_mapplanner whole.launch.py`
+  - 包含 `map_server`、`map_planner`、`goal_state_machine`
+- 终端3：启动 NeuPAN 局部规划
+  - `python src/diablo_ros2/diablo_neupan/diablo_neupan/neupan_ros2.py`
+
+### 1.2 建图与重定位流程已打通
+- 建图脚本：
+  - `bash src/diablo_perception/odin_ros_driver/script/map_recording_ros2.sh mapname`
+- 已完成从 Odin 点云到地图文件的完整产物链：
+  - 点云录制：`/odin1/cloud_slam -> *.pcd`
+  - 栅格地图：`*.yaml/*.pgm`
+  - 重定位地图：`*.bin`
+- 已验证通过修改 `control_command.yaml` 的 `custom_map_mode` 与 `relocalization_map_abs_path` 进行重定位切换。
+
+### 1.3 关键历史问题已修复并验证
+- “到点后原地转圈”问题已修复：
+  - 在 `diablo_convert/msg_convert.cpp` 增加 `cmd_vel` 超时失效逻辑（避免旧速度残留）
+  - NeuPAN 在到点/停止时主动持续发零速
+
+## 2. 现在遇到的问题（待解决）
+
+### 2.1 当前测试现状
+1. 宿舍走廊场景：建图与重定位效果较好。
+2. 户外中小场景：建图与重定位基本可用，但转 2D 栅格图后，轨迹附近会出现黑色障碍区域（疑似地面/低矮结构被误判为障碍）。
+3. 大型户外场景：`map_20260414_152654.bin` 重定位失败。
+4. 花园场景：重定位失败。
+
+### 2.2 问题影响
+- 目前系统在室内和中小场景可用，但在大型户外场景稳定性不足。
+- 主要瓶颈是重定位鲁棒性与点云到 2D 栅格映射质量。
+
+### 2.3 初步判断
+- 仅依赖 Odin 做大场景重定位能力不足。
+- 户外复杂地形下，点云转 LaserScan / 2D 栅格时参数需要进一步针对地面与低矮障碍物做过滤。
+- 后续大场景需要考虑 GPS 融合，而不是只靠纯激光重定位。
+
+## 3. 诉求
+
+### 3.1 请优先支持的技术方向
+1. 大场景重定位方案
+	- 帮忙评估并落地 GPS 融合方案，用于户外长距离与重复纹理弱场景。
+2. 地图质量优化
+	- 协助调整点云到 2D 栅格的过滤与高度阈值，减少“轨迹黑边/黑块误障碍”。
+3. 稳定性回归验证
+	- 给出一套固定测试路线与验收标准（成功率、重定位时延、到点误差）。
+
+### 3.2 继续推进
+1. 一份可执行的户外大场景定位融合方案（参数建议 + 启动方式）。
+
+
+
+## 4. 当前导航逻辑
+
+注：局部规划器仍使用 NeuPAN。
+
+1. `nav2_map_server/map_server`
+	- 加载静态地图。
+2. `nav2_lifecycle_manager/lifecycle_manager`
+	- 管理 map_server 生命周期。
+3. `pointcloud_to_laserscan/pointcloud_to_laserscan_node`
+	- 点云转 2D LaserScan。
+4. `/map_planner_node`
+	- 全局规划。
+	- 订阅：`/map`、`/move_base_simple/goal`
+	- 发布：`/initial_path`、`/inflated_map`、`/map_planner/result`
+5. `/goal_state_machine_node`
+	- 处理到达事件和重规划。
+	- 订阅：`/neupan/arrive`、`/move_base_simple/goal`
+
+
+## 5. 工程链接
+
+https://github.com/wxr-npu/007_diablo_test/tree/delete_modules
+
+---
+
 # Diablo ROS2 导航系统说明
 
 本文档用于当前工程的日常使用与排障，覆盖以下目标：
